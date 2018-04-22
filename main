@@ -1,0 +1,274 @@
+// Arthimatic.cpp : Defines the entry point for the console application.
+//
+
+#include "stdafx.h"
+#include <iostream>
+#include <string>
+#include <conio.h>
+#include <vector>
+#include <utility>
+#include <stack>
+#include <algorithm>
+using namespace std;
+
+//var 
+vector < pair <pair <char, double >, double > >  symbols;
+// symbol >> .first.first 
+// prob. >> .first.second
+// fx >> .second 
+
+vector < pair <double, double> > interval;
+// f(i-1) first 
+// f (i) second
+
+vector < pair <double, double> > interval_dec;
+vector < pair <char, double> > symbols_dec;
+// symbol first
+// fx second 
+pair <double, double>  LU;
+double l, u;
+string encoded = ""; 
+string tag ; 
+string sub_tag = "";
+int tag_index;
+string original = ""; 
+int it; // number of iteration for decoding
+//calc fx 
+double calc_fx(int index);
+void set_intervals_dec();
+void set_intervals_en();
+void calc_LU(int x,char w);
+int check_LU();
+void rescale(int res);
+void encode(string s); 
+void extend(int n);
+double determindSmallestInt();
+void get_tag(int smallest);
+double to_decimal(string tag);
+void shift_tag();
+void decode();
+int main()
+{
+	cout << "-----------------------------------------------------------" << endl;
+	cout << "Choose e for encode || d for decode  ... " << endl;
+
+	char status; 
+	int noOfsymbols;
+	char temp;
+	double temp2, temp3;
+	string message;
+
+	cin >> status; 
+	cout << "Enter no. of symbols :" << endl;
+	cin >> noOfsymbols;
+	if (status == 'e')
+	{
+		for (int i = 0; i < noOfsymbols; i++)
+		{
+			cout << "Enter symbol : ";
+			cin >> temp;
+			cout << endl << "Enter probability : ";
+			cin >> temp2;
+			temp3 = calc_fx(i);
+			symbols.push_back({ { temp , temp2 },temp3 + temp2 });
+		}
+		cout << "Enter message you want to code ..." << endl;
+		cin >> message;
+		encode(message);
+		extend(32);
+		cout << encoded << endl; 
+		cout << "-----------------------------------------------------------" << endl;
+	}
+	else if (status == 'd')
+	{
+		for (int i = 0; i < noOfsymbols; i++)
+		{
+			cout << "Enter symbol : ";
+			cin >> temp;
+			cout << endl << "Enter f(x) : " ; 
+			cin >> temp2;
+			cout << endl;
+			symbols_dec.push_back(make_pair(temp, temp2));
+		}
+		cout << "Enter tag :" << endl;
+		cin >> tag;
+		cout << "Enter no of character sequance :" << endl;
+		cin >> it;
+		decode();
+		cout << original << endl;
+		cout << "-----------------------------------------------------------" << endl;
+	}
+	
+	system("PAUSE");
+	return 0;
+}
+
+
+double calc_fx(int index)
+{
+	double sum = 0;
+	for (int i = 0; i < index; i++)
+		sum += symbols[i].first.second;
+	return sum;
+}
+void set_intervals_en()
+{
+	
+	interval.push_back({ 0,symbols[0].second });
+	for (int i = 1; i < (int)symbols.size(); i++)
+	{
+		interval.push_back({ interval[i - 1].second,symbols[i].second });
+	}
+}
+void set_intervals_dec()
+{
+	interval_dec.push_back({ 0,symbols_dec[0].second });
+	for (int i = 1; i < (int)symbols_dec.size(); i++)
+	{
+		interval_dec.push_back({ symbols_dec[i - 1].second,symbols_dec[i].second });
+	}
+}
+void calc_LU(int x,char w)
+{
+	if (w == 'e')
+	{
+		//double l, u;
+		if (x == 0)
+			l = LU.first;
+		else
+			l = LU.first + (LU.second - LU.first) * symbols[x - 1].second;
+		u = LU.first + (LU.second - LU.first) * symbols[x].second;
+		LU = { l,u };
+	}
+	else
+	{
+		//double l, u;
+		if (x == 0)
+			l = LU.first;
+		else
+			l = LU.first + (LU.second - LU.first) * symbols_dec[x - 1].second;
+		u = LU.first + (LU.second - LU.first) * symbols_dec[x].second;
+		//LU = { l,u };
+	}
+	
+}
+int check_LU()
+{
+	if (LU.first >= 0 && LU.second <= 0.5) return 0; //rescale E1
+	else if (LU.first >= 0.5&&LU.second <= 1) return 1; //rescale E2
+	else return 2; //undetemined 
+}
+void rescale(int res)
+{
+	double l, u;
+	if (res == 0)
+	{
+		l = 2 * LU.first;
+		u = 2 * LU.second; 
+		LU = { l,u };
+	}
+	else if (res == 1)
+	{
+		l = 2 * (LU.first - 0.5); 
+		u = 2 * (LU.second - 0.5); 
+		LU = { l,u };
+	}
+	else return; 
+}
+void encode(string s)
+{
+	set_intervals_en();
+	int index = 0; 
+	LU.first = 0; LU.second = 1;
+	for (int i = 0; i < s.length(); i++)
+	{
+		for (int j = 0; j < symbols.size(); j++)
+		{
+			if (symbols[j].first.first == s[i])
+			{
+				index = j;
+				break; 
+			}
+		}
+		calc_LU(index++,'e');
+		int res = check_LU();
+		while (res != 2)
+		{
+			rescale(res); 
+			encoded += res + '0';
+			res = check_LU();
+		}
+	}
+}
+void extend(int n)
+{
+	encoded += '1';
+	for (int i = encoded.size()+1; i < n; i++) encoded += '0';
+}
+double determindSmallestInt()
+{
+	double small = numeric_limits<double>::max(); 
+	for (int i = 0; i < (int)interval_dec.size() - 1; i++)
+	{
+		small = min(interval_dec[i].second - interval_dec[i].first,small);
+	}
+	return small;
+}
+void get_tag(int smallest)
+{
+	for (int i = 0; i < smallest; i++)
+		sub_tag += tag[i];
+	tag_index = smallest - 1;
+}
+double to_decimal(string tag)
+{
+	double res = 0; 
+	for (int i = 0; i < tag.length(); i++)
+	{
+	
+		res += (tag[i]-'0') * pow(2, -(i+1));
+	}
+	return res;
+}
+
+void shift_tag()
+{
+	sub_tag += tag[++tag_index];
+	sub_tag.erase(0, 1);
+}
+
+void decode()
+{
+	set_intervals_dec();
+	double dec_tag;
+	int r;
+	r = ceil(-log2(determindSmallestInt()));
+	get_tag(r); //starting decoding tag
+	LU = { 0,1 }; //SET starting L ,U 
+	dec_tag = to_decimal(sub_tag); //e bits to check
+	while (original.length() != it)
+	{
+		bool flag = true;
+		int index = 0;  //index in set
+		while (flag)
+		{
+			calc_LU(index,'d');
+			if (dec_tag >= l && dec_tag <= u)
+				flag = 0;
+			else
+				index++;
+		}
+		LU.first = l; 
+		LU.second = u;
+		original += symbols_dec[index].first;
+		while (check_LU() != 2)
+		{
+			int q = check_LU();
+			rescale(q); 
+			shift_tag(); 
+			dec_tag = to_decimal(sub_tag);
+		}
+
+	}
+
+}
